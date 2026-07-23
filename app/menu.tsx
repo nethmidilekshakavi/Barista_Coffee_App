@@ -9,6 +9,7 @@ import {
 } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { useCart } from "../context/CartContext";
 
 const ORANGE = "#E8583A";
 const BG = "#FBF1EA";
@@ -77,6 +78,7 @@ const MENU_ITEMS: MenuItem[] = [
 export default function MenuScreen() {
   const router = useRouter();
   const { category } = useLocalSearchParams<{ category?: string }>();
+  const { addItem } = useCart();
 
   const [activeTab, setActiveTab] = useState<string>(category ?? "Top Picks");
   // Tracks the selected size/option index per product id.
@@ -84,6 +86,19 @@ export default function MenuScreen() {
 
   const selectOption = (itemId: string, optionIndex: number) => {
     setSelectedOptions((prev) => ({ ...prev, [itemId]: optionIndex }));
+  };
+
+  // Adds the currently selected variant (e.g. "Cappuccino" + "Short") to the
+  // cart, then takes the user straight to the Cart screen — tapping the "+"
+  // is what loads the cart page shown in the design.
+  const handleAddToCart = (item: MenuItem, option: PriceOption) => {
+    addItem({
+      id: `${item.id}-${option.label}`,
+      name: `${item.name} ${option.label}`,
+      price: option.price,
+      image: item.image,
+    });
+    router.push("/cart");
   };
 
   const filteredItems = MENU_ITEMS.filter((item) => item.category === activeTab);
@@ -128,7 +143,10 @@ export default function MenuScreen() {
               <View style={styles.cardBody}>
                 <View style={styles.cardTopRow}>
                   <Text style={styles.itemName}>{item.name}</Text>
-                  <TouchableOpacity style={styles.addBtn}>
+                  <TouchableOpacity
+                    style={styles.addBtn}
+                    onPress={() => handleAddToCart(item, selectedOption)}
+                  >
                     <Ionicons name="add" size={20} color="#FFFFFF" />
                   </TouchableOpacity>
                 </View>
