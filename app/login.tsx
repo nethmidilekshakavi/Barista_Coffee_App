@@ -38,28 +38,10 @@ export default function LoginScreen() {
       const response = await fetch(API_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          emailOrMobile: emailOrMobile.trim(),
-          password,
-        }),
+        body: JSON.stringify({ emailOrMobile, password }),
       });
 
-      // Read the body once as text, then try to parse it as JSON.
-      const text = await response.text();
-      console.log("Status:", response.status);
-      console.log("Raw response:", text);
-
-      let data;
-      try {
-        data = JSON.parse(text);
-      } catch (e) {
-        console.log("Server did not return JSON:", text.slice(0, 200));
-        Alert.alert(
-          "Server error",
-          "Unexpected response from server. Check the server logs."
-        );
-        return;
-      }
+      const data = await response.json();
 
       if (!response.ok) {
         Alert.alert("Login failed", data.message || "Invalid credentials");
@@ -123,7 +105,10 @@ export default function LoginScreen() {
           </TouchableOpacity>
         </View>
 
-        <TouchableOpacity style={styles.forgotWrapper}>
+        <TouchableOpacity
+          style={styles.forgotWrapper}
+          onPress={() => router.push("/forgot_password")}
+        >
           <Text style={styles.forgotText}>Forgot Password?</Text>
         </TouchableOpacity>
 
