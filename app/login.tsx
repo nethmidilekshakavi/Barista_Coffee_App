@@ -11,7 +11,6 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import BaristaLogo from "../components/BaristaLogo";
 
 export default function LoginScreen() {
   const router = useRouter();
