@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -20,20 +20,35 @@ const ORANGE = "#E8583A";
 
 export default function ResetPasswordScreen() {
   const router = useRouter();
-  const { mobile, code } = useLocalSearchParams<{ mobile: string; code: string }>();
+  const { mobile } = useLocalSearchParams<{ mobile: string }>();
 
+  const [code, setCode] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
+  const passwordChecks = useMemo(() => {
+    return {
+      length: newPassword.length >= 8,
+      lowercase: /[a-z]/.test(newPassword),
+      uppercase: /[A-Z]/.test(newPassword),
+      number: /[0-9]/.test(newPassword),
+      special: /[^A-Za-z0-9]/.test(newPassword),
+    };
+  }, [newPassword]);
+
+  const allPasswordRulesMet = Object.values(passwordChecks).every(Boolean);
+  const passwordsMatch =
+    confirmPassword.length > 0 && confirmPassword === newPassword;
+
+  const canSubmit =
+    code.trim().length === 6 && allPasswordRulesMet && passwordsMatch;
+
   const handleReset = async () => {
-    if (newPassword.length < 8) {
-      Alert.alert("Weak password", "Password must be at least 8 characters.");
-      return;
-    }
-    if (newPassword !== confirmPassword) {
-      Alert.alert("Mismatch", "Passwords do not match.");
+    if (!canSubmit) {
+      Alert.alert("Incomplete", "Please fill in all fields correctly.");
       return;
     }
 
@@ -42,7 +57,11 @@ export default function ResetPasswordScreen() {
       const response = await fetch(API_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mobile, code, newPassword }),
+        body: JSON.stringify({
+          mobile,
+          code: code.trim(),
+          newPassword,
+        }),
       });
 
       const data = await response.json();
@@ -73,16 +92,28 @@ export default function ResetPasswordScreen() {
         </TouchableOpacity>
 
         <View style={styles.iconCircle}>
-          <Ionicons name="key-outline" size={36} color={ORANGE} />
+          <Ionicons name="lock-closed-outline" size={36} color={ORANGE} />
         </View>
 
-        <Text style={styles.heading}>Set New Password</Text>
+        <Text style={styles.heading}>Create New Password</Text>
+        <Text style={styles.subheading}>Set a new password for your account.</Text>
+
+        <Text style={styles.label}>Verification Code</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="Enter your verification code"
+          placeholderTextColor="#9A9A9A"
+          value={code}
+          onChangeText={setCode}
+          keyboardType="number-pad"
+          maxLength={6}
+        />
 
         <Text style={styles.label}>New Password</Text>
         <View style={styles.passwordRow}>
           <TextInput
             style={styles.passwordInput}
-            placeholder="Enter new password"
+            placeholder="Enter your new password"
             placeholderTextColor="#9A9A9A"
             value={newPassword}
             onChangeText={setNewPassword}
@@ -101,27 +132,70 @@ export default function ResetPasswordScreen() {
         <View style={styles.passwordRow}>
           <TextInput
             style={styles.passwordInput}
-            placeholder="Re-enter new password"
+            placeholder="Confirm your new password"
             placeholderTextColor="#9A9A9A"
             value={confirmPassword}
             onChangeText={setConfirmPassword}
-            secureTextEntry={!showPassword}
+            secureTextEntry={!showConfirmPassword}
+          />
+          <TouchableOpacity onPress={() => setShowConfirmPassword((v) => !v)}>
+            <Ionicons
+              name={showConfirmPassword ? "eye-outline" : "eye-off-outline"}
+              size={22}
+              color="#9A9A9A"
+            />
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.rulesBox}>
+          <Text style={styles.rulesTitle}>
+            Password at least 8 characters and meet all conditions following:
+          </Text>
+
+          <RuleRow met={passwordChecks.length} text="At least 8 characters" />
+          <RuleRow
+            met={passwordChecks.lowercase}
+            text="Lowercase (small) letters a-z. Examples: a, e, r"
+          />
+          <RuleRow
+            met={passwordChecks.uppercase}
+            text="Uppercase (capital) letters A-Z. Examples: A, E, R"
+          />
+          <RuleRow met={passwordChecks.number} text="Numbers 0-9. Examples: 2, 6, 7" />
+          <RuleRow
+            met={passwordChecks.special}
+            text="Non-alphanumeric characters (special characters)"
           />
         </View>
 
-        <View style={styles.spacer} />
-
         <TouchableOpacity
-          style={[styles.resetButton, submitting && styles.resetButtonDisabled]}
+          style={[
+            styles.resetButton,
+            (!canSubmit || submitting) && styles.resetButtonDisabled,
+          ]}
           onPress={handleReset}
-          disabled={submitting}
+          disabled={!canSubmit || submitting}
         >
           <Text style={styles.resetButtonText}>
-            {submitting ? "Updating..." : "Update Password"}
+            {submitting ? "Resetting..." : "Reset Password"}
           </Text>
         </TouchableOpacity>
       </ScrollView>
     </KeyboardAvoidingView>
+  );
+}
+
+function RuleRow({ met, text }: { met: boolean; text: string }) {
+  return (
+    <View style={styles.ruleRow}>
+      <Ionicons
+        name={met ? "checkmark-circle" : "chevron-forward"}
+        size={16}
+        color={met ? "#3FA34D" : "#9A9A9A"}
+        style={styles.ruleIcon}
+      />
+      <Text style={[styles.ruleText, met && styles.ruleTextMet]}>{text}</Text>
+    </View>
   );
 }
 
@@ -130,14 +204,14 @@ const styles = StyleSheet.create({
   container: {
     flexGrow: 1,
     paddingHorizontal: 28,
-    paddingBottom: 32,
+    paddingBottom: 40,
     alignItems: "center",
   },
   backButton: {
     alignSelf: "flex-start",
     paddingVertical: 8,
     marginTop: 30,
-    marginBottom: 20,
+    marginBottom: 10,
   },
   iconCircle: {
     width: 80,
@@ -146,19 +220,38 @@ const styles = StyleSheet.create({
     backgroundColor: "#FBE0D6",
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 24,
+    marginBottom: 20,
   },
   heading: {
     fontWeight: "700",
     fontSize: 22,
     color: "#2B2B2B",
-    marginBottom: 28,
+    marginBottom: 6,
+    textAlign: "center",
+  },
+  subheading: {
+    color: "#5A5A5A",
+    fontSize: 14,
+    marginBottom: 26,
+    textAlign: "center",
   },
   label: {
     alignSelf: "flex-start",
     fontWeight: "700",
     color: "#2B2B2B",
     marginBottom: 8,
+    marginTop: 4,
+  },
+  input: {
+    width: "100%",
+    borderWidth: 1,
+    borderColor: "#D8D0C8",
+    borderRadius: 30,
+    paddingHorizontal: 18,
+    paddingVertical: 14,
+    fontSize: 15,
+    color: "#2B2B2B",
+    marginBottom: 18,
   },
   passwordRow: {
     width: "100%",
@@ -177,9 +270,38 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: "#2B2B2B",
   },
-  spacer: {
+  rulesBox: {
+    width: "100%",
+    backgroundColor: "#F3E9DF",
+    borderRadius: 16,
+    padding: 16,
+    marginTop: 4,
+    marginBottom: 24,
+  },
+  rulesTitle: {
+    fontWeight: "700",
+    color: "#2B2B2B",
+    marginBottom: 10,
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  ruleRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    marginTop: 8,
+  },
+  ruleIcon: {
+    marginTop: 2,
+    marginRight: 8,
+  },
+  ruleText: {
     flex: 1,
-    minHeight: 100,
+    color: "#6A6A6A",
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  ruleTextMet: {
+    color: "#3FA34D",
   },
   resetButton: {
     width: "100%",

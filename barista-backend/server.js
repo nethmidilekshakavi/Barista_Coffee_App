@@ -81,6 +81,7 @@ app.post("/api/login", async (req, res) => {
     return res.status(200).json({
       message: "Login successful",
       user: userWithoutPassword,
+
     });
   } catch (err) {
     console.error("Login error:", err);
