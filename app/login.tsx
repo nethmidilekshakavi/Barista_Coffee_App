@@ -13,7 +13,7 @@ import {
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 
-const logoImage = require("../assets/images/barista-logo-orange-pic.png");
+const logoImage = require("../assets/images/logo/orange.png");
 const LOGO_ASPECT_RATIO = 808 / 483; // width / height of the source asset
 
 export default function LoginScreen() {
@@ -123,7 +123,6 @@ const styles = StyleSheet.create({
   logo: {
     width: 400,
     height: 400 / LOGO_ASPECT_RATIO,
-    tintColor: ORANGE,
     marginBottom: -70,
   },
   heading: {
