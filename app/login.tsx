@@ -9,6 +9,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  Alert,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -16,15 +17,65 @@ import { Ionicons } from "@expo/vector-icons";
 const logoImage = require("../assets/images/logo/orange.png");
 const LOGO_ASPECT_RATIO = 808 / 483; // width / height of the source asset
 
+// 👉 replace with your PC's local IP (not localhost) when testing on phone/emulator
+const API_URL = "http://192.168.1.3:5000/api/login";
+
 export default function LoginScreen() {
   const router = useRouter();
   const [emailOrMobile, setEmailOrMobile] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
-  const handleSignIn = () => {
-    // TODO: wire this up to your auth logic
-    console.log("Sign in with", emailOrMobile, password);
+  const handleSignIn = async () => {
+    if (!emailOrMobile.trim() || !password.trim()) {
+      Alert.alert("Missing info", "Please enter your email/mobile and password.");
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const response = await fetch(API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          emailOrMobile: emailOrMobile.trim(),
+          password,
+        }),
+      });
+
+      // Read the body once as text, then try to parse it as JSON.
+      const text = await response.text();
+      console.log("Status:", response.status);
+      console.log("Raw response:", text);
+
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch (e) {
+        console.log("Server did not return JSON:", text.slice(0, 200));
+        Alert.alert(
+          "Server error",
+          "Unexpected response from server. Check the server logs."
+        );
+        return;
+      }
+
+      if (!response.ok) {
+        Alert.alert("Login failed", data.message || "Invalid credentials");
+        return;
+      }
+
+      // login success -> go to dashboard
+      // TODO: if you want to keep the user logged in, save data.user
+      // (e.g. with AsyncStorage or a context/store) before navigating.
+      router.replace("/dashboard");
+    } catch (err) {
+      console.error("Login request failed:", err);
+      Alert.alert("Connection error", "Could not connect to server. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -76,8 +127,14 @@ export default function LoginScreen() {
           <Text style={styles.forgotText}>Forgot Password?</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.signInButton} onPress={handleSignIn}>
-          <Text style={styles.signInText}>Sign In</Text>
+        <TouchableOpacity
+          style={[styles.signInButton, submitting && styles.signInButtonDisabled]}
+          onPress={handleSignIn}
+          disabled={submitting}
+        >
+          <Text style={styles.signInText}>
+            {submitting ? "Signing In..." : "Sign In"}
+          </Text>
         </TouchableOpacity>
 
         <View style={styles.dividerRow}>
@@ -183,6 +240,9 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     alignItems: "center",
     marginBottom: 26,
+  },
+  signInButtonDisabled: {
+    backgroundColor: "#B8B0A8",
   },
   signInText: {
     color: "#FFFFFF",
