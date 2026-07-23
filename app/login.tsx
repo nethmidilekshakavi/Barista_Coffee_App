@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import {
   View,
   Text,
+  Image,
   TextInput,
   TouchableOpacity,
   StyleSheet,
@@ -11,6 +12,9 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+
+const logoImage = require("../assets/images/barista-logo-orange-pic.png");
+const LOGO_ASPECT_RATIO = 808 / 483; // width / height of the source asset
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -33,7 +37,7 @@ export default function LoginScreen() {
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.logoWrapper}>
-          <BaristaLogo variant="orange" size="medium" />
+          <Image source={logoImage} resizeMode="contain" style={styles.logo} />
         </View>
 
         <Text style={styles.heading}>LOGIN{"\n"}TO START ORDERING</Text>
@@ -110,12 +114,17 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     backgroundColor: "#FBF1EA",
     paddingHorizontal: 28,
-    paddingTop: 40,
     paddingBottom: 32,
     alignItems: "center",
   },
   logoWrapper: {
-    marginBottom: 12,
+    marginBottom: 10,
+  },
+  logo: {
+    width: 400,
+    height: 400 / LOGO_ASPECT_RATIO,
+    tintColor: ORANGE,
+    marginBottom: -70,
   },
   heading: {
     textAlign: "center",

@@ -4,7 +4,7 @@ import { useRouter } from "expo-router";
 
 const LOAD_DURATION_MS = 2200;
 const bgPattern = require("../assets/images/coffee-pattern-bg.png");
-const logoImage = require("../assets/images/barista-logo-white.png");
+const logoImage = require("../assets/images/barista-logo-white-pic.png");
 const LOGO_ASPECT_RATIO = 808 / 483; // width / height of the source asset
 
 export default function LoadingScreen() {
