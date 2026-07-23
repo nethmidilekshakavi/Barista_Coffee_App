@@ -13,15 +13,16 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { useAuth } from "../context/AuthContext";
 
 const logoImage = require("../assets/images/logo/orange.png");
-const LOGO_ASPECT_RATIO = 808 / 483; // width / height of the source asset
+const LOGO_ASPECT_RATIO = 808 / 483;
 
-// 👉 replace with your PC's local IP (not localhost) when testing on phone/emulator
 const API_URL = "http://192.168.1.3:5000/api/login";
 
 export default function LoginScreen() {
   const router = useRouter();
+  const { login } = useAuth();
   const [emailOrMobile, setEmailOrMobile] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -48,9 +49,7 @@ export default function LoginScreen() {
         return;
       }
 
-      // login success -> go to dashboard
-      // TODO: if you want to keep the user logged in, save data.user
-      // (e.g. with AsyncStorage or a context/store) before navigating.
+      await login(data.user); // persist logged-in user for the whole app
       router.replace("/dashboard");
     } catch (err) {
       console.error("Login request failed:", err);
@@ -148,25 +147,17 @@ export default function LoginScreen() {
 }
 
 const ORANGE = "#E8583A";
-const DARK_MAROON = "#6B1A1A";
 
 const styles = StyleSheet.create({
   flex: { flex: 1, backgroundColor: "#FBF1EA" },
   container: {
     flexGrow: 1,
-
     paddingHorizontal: 28,
     paddingBottom: 32,
     alignItems: "center",
   },
-  logoWrapper: {
-    marginBottom: 10,
-  },
-  logo: {
-    width: 400,
-    height: 400 / LOGO_ASPECT_RATIO,
-    marginBottom: -70,
-  },
+  logoWrapper: { marginBottom: 10 },
+  logo: { width: 400, height: 400 / LOGO_ASPECT_RATIO, marginBottom: -70 },
   heading: {
     textAlign: "center",
     color: ORANGE,
@@ -175,13 +166,7 @@ const styles = StyleSheet.create({
     lineHeight: 28,
     marginBottom: 28,
   },
-  label: {
-    alignSelf: "flex-start",
-    fontWeight: "700",
-    color: "#2B2B2B",
-    marginBottom: 8,
-    marginTop: 4,
-  },
+  label: { alignSelf: "flex-start", fontWeight: "700", color: "#2B2B2B", marginBottom: 8, marginTop: 4 },
   input: {
     width: "100%",
     borderWidth: 1,
@@ -204,20 +189,9 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     marginBottom: 8,
   },
-  passwordInput: {
-    flex: 1,
-    paddingVertical: 10,
-    fontSize: 15,
-    color: "#2B2B2B",
-  },
-  forgotWrapper: {
-    alignSelf: "flex-end",
-    marginBottom: 24,
-  },
-  forgotText: {
-    color: ORANGE,
-    fontWeight: "600",
-  },
+  passwordInput: { flex: 1, paddingVertical: 10, fontSize: 15, color: "#2B2B2B" },
+  forgotWrapper: { alignSelf: "flex-end", marginBottom: 24 },
+  forgotText: { color: ORANGE, fontWeight: "600" },
   signInButton: {
     width: "100%",
     backgroundColor: ORANGE,
@@ -226,30 +200,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 26,
   },
-  signInButtonDisabled: {
-    backgroundColor: "#B8B0A8",
-  },
-  signInText: {
-    color: "#FFFFFF",
-    fontWeight: "700",
-    fontSize: 16,
-  },
-  dividerRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    width: "100%",
-    marginBottom: 22,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: "#D8D0C8",
-  },
-  dividerText: {
-    marginHorizontal: 10,
-    color: "#8A8A8A",
-    fontSize: 13,
-  },
+  signInButtonDisabled: { backgroundColor: "#B8B0A8" },
+  signInText: { color: "#FFFFFF", fontWeight: "700", fontSize: 16 },
+  dividerRow: { flexDirection: "row", alignItems: "center", width: "100%", marginBottom: 22 },
+  dividerLine: { flex: 1, height: 1, backgroundColor: "#D8D0C8" },
+  dividerText: { marginHorizontal: 10, color: "#8A8A8A", fontSize: 13 },
   googleButton: {
     width: 52,
     height: 52,
@@ -260,25 +215,9 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginBottom: 20,
   },
-  googleG: {
-    fontSize: 22,
-    fontWeight: "800",
-    color: "#2B2B2B",
-  },
-  guestText: {
-    color: ORANGE,
-    fontWeight: "700",
-    marginBottom: 24,
-  },
-  signUpRow: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  signUpPrompt: {
-    color: "#5A5A5A",
-  },
-  signUpLink: {
-    color: ORANGE,
-    fontWeight: "700",
-  },
+  googleG: { fontSize: 22, fontWeight: "800", color: "#2B2B2B" },
+  guestText: { color: ORANGE, fontWeight: "700", marginBottom: 24 },
+  signUpRow: { flexDirection: "row", alignItems: "center" },
+  signUpPrompt: { color: "#5A5A5A" },
+  signUpLink: { color: ORANGE, fontWeight: "700" },
 });
