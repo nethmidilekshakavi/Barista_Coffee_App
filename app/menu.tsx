@@ -17,17 +17,23 @@ const BG = "#FBF1EA";
 // These should line up with the CATEGORIES labels used on the Dashboard.
 const TABS = ["Top Picks", "Coffee", "Food", "Promotion", "Sweet Tornados", "Beyond Coffee"];
 
+// Each size/variant now carries its own price, so switching the pill
+// (Short/Medium/Tall, White/Brown Bread, etc.) updates the price shown.
+type PriceOption = {
+  label: string;
+  price: number;
+  originalPrice?: number;
+  discountLabel?: string;
+};
+
 type MenuItem = {
   id: string;
   category: string;
   name: string;
-  price: number;
-  originalPrice?: number;
-  discountLabel?: string;
   description: string;
   // 👉 Replace these require(...) paths with your own product images.
   image: any;
-  options: string[];
+  options: PriceOption[];
 };
 
 const MENU_ITEMS: MenuItem[] = [
@@ -35,32 +41,36 @@ const MENU_ITEMS: MenuItem[] = [
     id: "1",
     category: "Top Picks",
     name: "Cappuccino",
-    price: 496,
-    originalPrice: 620,
-    discountLabel: "20%",
     description: "A classic espresso with steamed milk and a thick layer of foam.",
     image: require("../assets/images/menu/cappuccino.png"),
-    options: ["Short", "Medium", "Tall"],
+    options: [
+      { label: "Short", price: 496, originalPrice: 620, discountLabel: "20%" },
+      { label: "Medium", price: 576, originalPrice: 720, discountLabel: "20%" },
+      { label: "Tall", price: 760, originalPrice: 950, discountLabel: "20%" },
+    ],
   },
   {
     id: "2",
     category: "Top Picks",
     name: "Chicken Ham and Cheese",
-    price: 790,
     description: "Chicken ham and melted cheese layered in soft bread.",
     image: require("../assets/images/menu/chicken-ham-cheese.png"),
-    options: ["White Bread", "Brown Bread"],
+    options: [
+      { label: "White Bread", price: 790 },
+      { label: "Brown Bread", price: 890 },
+    ],
   },
   {
     id: "3",
     category: "Top Picks",
     name: "Americano",
-    price: 424,
-    originalPrice: 530,
-    discountLabel: "20%",
     description: "Espresso diluted with hot water for a smooth and bold coffee experience.",
     image: require("../assets/images/menu/americano.png"),
-    options: ["Short", "Medium", "Tall"],
+    options: [
+      { label: "Short", price: 424, originalPrice: 530, discountLabel: "20%" },
+      { label: "Medium", price: 496, originalPrice: 620, discountLabel: "20%" },
+      { label: "Tall", price: 624, originalPrice: 780, discountLabel: "20%" },
+    ],
   },
 ];
 
@@ -106,55 +116,60 @@ export default function MenuScreen() {
 
       {/* Product list */}
       <ScrollView contentContainerStyle={styles.listContent} showsVerticalScrollIndicator={false}>
-        {filteredItems.map((item) => (
-          <View key={item.id} style={styles.card}>
-            {/* 👉 Product image goes here — stretches to fill the full card height, no white gaps */}
-            <Image source={item.image} resizeMode="cover" style={styles.itemImage} />
+        {filteredItems.map((item) => {
+          const selectedIndex = selectedOptions[item.id] ?? 0;
+          const selectedOption = item.options[selectedIndex];
 
-            <View style={styles.cardBody}>
-              <View style={styles.cardTopRow}>
-                <Text style={styles.itemName}>{item.name}</Text>
-                <TouchableOpacity style={styles.addBtn}>
-                  <Ionicons name="add" size={20} color="#FFFFFF" />
-                </TouchableOpacity>
-              </View>
+          return (
+            <View key={item.id} style={styles.card}>
+              {/* 👉 Product image goes here — stretches to fill the full card height, no white gaps */}
+              <Image source={item.image} resizeMode="cover" style={styles.itemImage} />
 
-              <View style={styles.priceRow}>
-                <Text style={styles.currency}>LKR</Text>
-                {item.originalPrice && (
-                  <Text style={styles.originalPrice}>{item.originalPrice}</Text>
-                )}
-                <Text style={styles.price}>{item.price}</Text>
-                {item.discountLabel && (
-                  <View style={styles.discountBadge}>
-                    <Text style={styles.discountText}>{item.discountLabel}</Text>
-                  </View>
-                )}
-              </View>
+              <View style={styles.cardBody}>
+                <View style={styles.cardTopRow}>
+                  <Text style={styles.itemName}>{item.name}</Text>
+                  <TouchableOpacity style={styles.addBtn}>
+                    <Ionicons name="add" size={20} color="#FFFFFF" />
+                  </TouchableOpacity>
+                </View>
 
-              <Text style={styles.description} numberOfLines={2}>
-                {item.description}
-              </Text>
+                <View style={styles.priceRow}>
+                  <Text style={styles.currency}>LKR</Text>
+                  {selectedOption.originalPrice && (
+                    <Text style={styles.originalPrice}>{selectedOption.originalPrice}</Text>
+                  )}
+                  <Text style={styles.price}>{selectedOption.price}</Text>
+                  {selectedOption.discountLabel && (
+                    <View style={styles.discountBadge}>
+                      <Text style={styles.discountText}>{selectedOption.discountLabel}</Text>
+                    </View>
+                  )}
+                </View>
 
-              <View style={styles.optionsRow}>
-                {item.options.map((option, index) => {
-                  const isSelected = (selectedOptions[item.id] ?? 0) === index;
-                  return (
-                    <TouchableOpacity
-                      key={option}
-                      onPress={() => selectOption(item.id, index)}
-                      style={[styles.optionPill, isSelected && styles.optionPillActive]}
-                    >
-                      <Text style={[styles.optionText, isSelected && styles.optionTextActive]}>
-                        {option}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
+                <Text style={styles.description} numberOfLines={2}>
+                  {item.description}
+                </Text>
+
+                <View style={styles.optionsRow}>
+                  {item.options.map((option, index) => {
+                    const isSelected = selectedIndex === index;
+                    return (
+                      <TouchableOpacity
+                        key={option.label}
+                        onPress={() => selectOption(item.id, index)}
+                        style={[styles.optionPill, isSelected && styles.optionPillActive]}
+                      >
+                        <Text style={[styles.optionText, isSelected && styles.optionTextActive]}>
+                          {option.label}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
               </View>
             </View>
-          </View>
-        ))}
+          );
+        })}
 
         {filteredItems.length === 0 && (
           <Text style={styles.emptyText}>No items in this category yet.</Text>
@@ -210,11 +225,11 @@ const styles = StyleSheet.create({
     marginBottom: 18,
     overflow: "hidden",
     // alignItems intentionally left as default "stretch" so the image
-    // (no fixed height, alignSelf: "stretch") fills the card top-to-bottom.
+    // fills the card top-to-bottom.
   },
   itemImage: {
     width: 130,
-    height:185,
+    height: 185,
   },
   cardBody: { flex: 1, padding: 14 },
   cardTopRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" },
