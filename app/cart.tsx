@@ -118,6 +118,7 @@ export default function CartScreen() {
         <TouchableOpacity
           style={[styles.checkoutBtn, items.length === 0 && styles.checkoutBtnDisabled]}
           disabled={items.length === 0}
+          onPress={() => router.push("/checkout")}
         >
           <Text style={styles.checkoutText}>Proceed to Checkout - Rs. {total.toFixed(2)}</Text>
         </TouchableOpacity>

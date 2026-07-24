@@ -162,6 +162,17 @@ export default function SelectOutletScreen() {
   // Outlet whose "More Info" popup is currently open. null = popup hidden.
   const [detailOutlet, setDetailOutlet] = useState<Outlet | null>(null);
 
+  // "Select Order Time" popup — opens after "Select Outlet" is pressed.
+  const [orderTimeOutlet, setOrderTimeOutlet] = useState<Outlet | null>(null);
+  const [orderMode, setOrderMode] = useState<"now" | "schedule">("now");
+  const [scheduleDate, setScheduleDate] = useState<Date>(new Date());
+  const [scheduleTime, setScheduleTime] = useState<string | null>(null);
+
+  // The outlet already locked in for the current/active order (if any).
+  const [confirmedOutletId, setConfirmedOutletId] = useState<string | null>(null);
+  // Outlet the person just tapped, waiting on "Change Outlet" confirmation.
+  const [pendingOutlet, setPendingOutlet] = useState<Outlet | null>(null);
+
   useEffect(() => {
     (async () => {
       const { status } = await Location.requestForegroundPermissionsAsync();
@@ -234,12 +245,86 @@ export default function SelectOutletScreen() {
     Linking.openURL(`tel:${phone.replace(/\s/g, "")}`);
   };
 
-  const confirmOutletSelection = (outlet: Outlet) => {
+  // Opens the "Select Order Time" popup for a given outlet, resetting its state.
+  const openOrderTimeFor = (outlet: Outlet) => {
     setSelectedId(outlet.id);
     setDetailOutlet(null);
-    // Hook up navigation / confirm-order logic here if needed, e.g.:
-    // router.push({ pathname: "/checkout", params: { outletId: outlet.id } });
+    setOrderMode("now");
+    setScheduleDate(new Date());
+    setScheduleTime(null);
+    setOrderTimeOutlet(outlet);
   };
+
+  // Entry point for picking an outlet — used by both the card tap and the
+  // "Select Outlet" button inside the detail popup. If a different outlet is
+  // already locked in for the current order, ask for confirmation first
+  // instead of jumping straight to Select Order Time.
+  const requestOutletSelection = (outlet: Outlet) => {
+    if (confirmedOutletId && confirmedOutletId !== outlet.id) {
+      setDetailOutlet(null);
+      setPendingOutlet(outlet);
+      return;
+    }
+    openOrderTimeFor(outlet);
+  };
+
+  const cancelChangeOutlet = () => setPendingOutlet(null);
+
+  const confirmChangeOutlet = () => {
+    if (!pendingOutlet) return;
+    const outlet = pendingOutlet;
+    setPendingOutlet(null);
+    // TODO: also clear the actual cart/order state here (e.g. via a cart
+    // context or by passing a `clearOrder: true` param to /menu) once the
+    // cart screen/context is wired up.
+    openOrderTimeFor(outlet);
+  };
+
+  // "Select Outlet" button inside the detail popup.
+  const confirmOutletSelection = (outlet: Outlet) => {
+    requestOutletSelection(outlet);
+  };
+
+  const closeOrderTimeModal = () => setOrderTimeOutlet(null);
+
+  const startOrder = () => {
+    if (!orderTimeOutlet) return;
+    const outlet = orderTimeOutlet;
+    setConfirmedOutletId(outlet.id);
+    setOrderTimeOutlet(null);
+    router.push({
+      pathname: "/menu",
+      params: {
+        outletId: outlet.id,
+        outletName: outlet.name,
+        mode: orderMode,
+        date: orderMode === "schedule" ? scheduleDate.toISOString() : undefined,
+        time: orderMode === "schedule" ? scheduleTime : undefined,
+      },
+    });
+  };
+
+  const pad2 = (n: number) => String(n).padStart(2, "0");
+
+  // e.g. "2026-07-24, 00:00:00" — matches the collapsed subtitle format.
+  const scheduleRawLabel = useMemo(() => {
+    const d = scheduleDate;
+    const timePart = scheduleTime ?? "00:00:00";
+    return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}, ${timePart}`;
+  }, [scheduleDate, scheduleTime]);
+
+  // e.g. "Today (Jul 24, 2026)" — used inside the expanded "Select Date" field.
+  const scheduleDateLabel = useMemo(() => {
+    const d = scheduleDate;
+    const today = new Date();
+    const isToday =
+      d.getFullYear() === today.getFullYear() &&
+      d.getMonth() === today.getMonth() &&
+      d.getDate() === today.getDate();
+    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    const formatted = `${months[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
+    return isToday ? `Today (${formatted})` : formatted;
+  }, [scheduleDate]);
 
   const initialRegion: Region = {
     latitude: userLocation?.latitude ?? 6.9271,
@@ -385,7 +470,10 @@ export default function SelectOutletScreen() {
               <TouchableOpacity
                 activeOpacity={0.9}
                 style={[styles.card, { width: CARD_WIDTH, marginLeft: index === 0 ? 24 : CARD_SPACING }]}
-                onPress={() => focusOutlet(item, index)}
+                onPress={() => {
+                  focusOutlet(item, index);
+                  requestOutletSelection(item);
+                }}
               >
                 <Image source={item.image} style={styles.cardImage} resizeMode="cover" />
                 <View style={styles.cardBody}>
@@ -488,6 +576,127 @@ export default function SelectOutletScreen() {
                   onPress={() => confirmOutletSelection(detailOutlet)}
                 >
                   <Text style={styles.modalSelectBtnText}>Select Outlet</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+      )}
+
+      {/* "Select Order Time" popup — opened after "Select Outlet" is pressed */}
+      {orderTimeOutlet && (
+        <Modal
+          visible
+          transparent
+          animationType="slide"
+          onRequestClose={closeOrderTimeModal}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalCard}>
+              <View style={styles.modalImageWrap}>
+                <Image source={orderTimeOutlet.image} style={styles.modalImage} resizeMode="cover" />
+                <TouchableOpacity style={styles.modalCloseBtn} onPress={closeOrderTimeModal}>
+                  <Ionicons name="close" size={20} color="#2B2B2B" />
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.timeSheet}>
+                <View style={styles.timeSheetHeaderRow}>
+                  <Text style={styles.timeSheetTitle}>Select Order Time</Text>
+                  <TouchableOpacity onPress={closeOrderTimeModal}>
+                    <Ionicons name="close" size={20} color="#2B2B2B" />
+                  </TouchableOpacity>
+                </View>
+
+                <TouchableOpacity
+                  style={[styles.timeOptionRow, orderMode === "now" && styles.timeOptionRowActive]}
+                  onPress={() => setOrderMode("now")}
+                >
+                  <Ionicons name="time-outline" size={22} color={orderMode === "now" ? ORANGE : "#2B2B2B"} />
+                  <View style={styles.timeOptionTextWrap}>
+                    <Text style={[styles.timeOptionTitle, orderMode === "now" && styles.timeOptionTitleActive]}>
+                      Now
+                    </Text>
+                    <Text style={styles.timeOptionSubtitle}>Pickup as soon as possible</Text>
+                  </View>
+                  {orderMode === "now" && <Ionicons name="checkmark-circle" size={22} color={ORANGE} />}
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.timeOptionRow, orderMode === "schedule" && styles.timeOptionRowActive]}
+                  onPress={() => setOrderMode("schedule")}
+                >
+                  <Ionicons name="time-outline" size={22} color={orderMode === "schedule" ? ORANGE : "#2B2B2B"} />
+                  <View style={styles.timeOptionTextWrap}>
+                    <Text
+                      style={[styles.timeOptionTitle, orderMode === "schedule" && styles.timeOptionTitleActive]}
+                    >
+                      Schedule for Later
+                    </Text>
+                    <Text style={styles.timeOptionSubtitle}>{scheduleRawLabel}</Text>
+                  </View>
+                </TouchableOpacity>
+
+                {orderMode === "schedule" && (
+                  <View style={styles.scheduleFields}>
+                    <Text style={styles.scheduleLabel}>Select Date</Text>
+                    <TouchableOpacity
+                      style={styles.scheduleDropdown}
+                      onPress={() => {
+                        // TODO: hook up a real date picker (e.g. @react-native-community/datetimepicker).
+                        // For now this just keeps today's date selected.
+                      }}
+                    >
+                      <Text style={styles.scheduleDropdownText}>{scheduleDateLabel}</Text>
+                      <Ionicons name="chevron-down" size={18} color="#6A6A6A" />
+                    </TouchableOpacity>
+
+                    <Text style={[styles.scheduleLabel, { marginTop: 16 }]}>Select Time</Text>
+                    <TouchableOpacity
+                      style={styles.scheduleDropdown}
+                      onPress={() => {
+                        // TODO: hook up a real time picker. Placeholder for now:
+                        setScheduleTime("12:00:00");
+                      }}
+                    >
+                      <Text
+                        style={[
+                          styles.scheduleDropdownText,
+                          !scheduleTime && styles.scheduleDropdownPlaceholder,
+                        ]}
+                      >
+                        {scheduleTime ?? "Choose a time"}
+                      </Text>
+                      <Ionicons name="chevron-down" size={18} color="#6A6A6A" />
+                    </TouchableOpacity>
+                  </View>
+                )}
+
+                <TouchableOpacity style={styles.startOrderBtn} onPress={startOrder}>
+                  <Text style={styles.modalSelectBtnText}>Start Order</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+      )}
+
+      {/* "Change Outlet" confirmation — shown when a different outlet is already locked in */}
+      {pendingOutlet && (
+        <Modal visible transparent animationType="fade" onRequestClose={cancelChangeOutlet}>
+          <View style={styles.confirmOverlay}>
+            <View style={styles.confirmCard}>
+              <Ionicons name="warning-outline" size={48} color={ORANGE} style={{ marginBottom: 16 }} />
+              <Text style={styles.confirmTitle}>Change Outlet</Text>
+              <Text style={styles.confirmBody}>
+                If you change the outlet, the current order will be cleared. Are you sure you want to continue?
+              </Text>
+              <View style={styles.confirmButtonsRow}>
+                <TouchableOpacity style={styles.confirmNoBtn} onPress={cancelChangeOutlet}>
+                  <Text style={styles.confirmNoText}>No</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.confirmYesBtn} onPress={confirmChangeOutlet}>
+                  <Text style={styles.confirmYesText}>Yes</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -727,4 +936,104 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   modalSelectBtnText: { color: "#FFFFFF", fontSize: 16, fontWeight: "700" },
+
+  // --- Select Order Time popup ---
+  timeSheet: {
+    flex: 1,
+    paddingHorizontal: 24,
+    paddingTop: 20,
+  },
+  timeSheetHeaderRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  timeSheetTitle: { fontSize: 18, fontWeight: "800", color: "#2B2B2B" },
+  timeOptionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#E8D8CC",
+    borderRadius: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 14,
+    marginBottom: 14,
+  },
+  timeOptionRowActive: {
+    borderColor: ORANGE,
+    backgroundColor: "#FFF4F0",
+  },
+  timeOptionTextWrap: { flex: 1, marginLeft: 12 },
+  timeOptionTitle: { fontSize: 15, fontWeight: "700", color: "#2B2B2B" },
+  timeOptionTitleActive: { color: ORANGE },
+  timeOptionSubtitle: { fontSize: 12, color: "#6A6A6A", marginTop: 2 },
+  scheduleFields: { marginTop: 4, marginBottom: 8 },
+  scheduleLabel: { fontSize: 13, fontWeight: "700", color: "#2B2B2B", marginBottom: 8 },
+  scheduleDropdown: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    borderWidth: 1,
+    borderColor: "#E8D8CC",
+    borderRadius: 24,
+    paddingVertical: 14,
+    paddingHorizontal: 18,
+    backgroundColor: "#FFFFFF",
+  },
+  scheduleDropdownText: { fontSize: 14, color: "#2B2B2B" },
+  scheduleDropdownPlaceholder: { color: "#9B9B9B" },
+  startOrderBtn: {
+    backgroundColor: ORANGE,
+    borderRadius: 28,
+    paddingVertical: 16,
+    alignItems: "center",
+    marginTop: "auto",
+    marginBottom: 8,
+  },
+
+  // --- Change Outlet confirmation ---
+  confirmOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.45)",
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 32,
+  },
+  confirmCard: {
+    width: "100%",
+    backgroundColor: "#FFFFFF",
+    borderRadius: 24,
+    paddingVertical: 28,
+    paddingHorizontal: 24,
+    alignItems: "center",
+  },
+  confirmTitle: { fontSize: 18, fontWeight: "800", color: "#2B2B2B", marginBottom: 8 },
+  confirmBody: {
+    fontSize: 14,
+    color: "#6A6A6A",
+    textAlign: "center",
+    lineHeight: 20,
+    marginBottom: 24,
+  },
+  confirmButtonsRow: { flexDirection: "row", width: "100%" },
+  confirmNoBtn: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: "#E8D8CC",
+    borderRadius: 24,
+    paddingVertical: 14,
+    alignItems: "center",
+    marginRight: 8,
+  },
+  confirmNoText: { fontSize: 15, fontWeight: "700", color: "#2B2B2B" },
+  confirmYesBtn: {
+    flex: 1,
+    backgroundColor: ORANGE,
+    borderRadius: 24,
+    paddingVertical: 14,
+    alignItems: "center",
+    marginLeft: 8,
+  },
+  confirmYesText: { fontSize: 15, fontWeight: "700", color: "#FFFFFF" },
 });
