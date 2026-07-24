@@ -9,6 +9,8 @@ import {
   FlatList,
   Dimensions,
   Platform,
+  Modal,
+  Linking,
 } from "react-native";
 import MapView, { Marker, PROVIDER_GOOGLE, Region } from "react-native-maps";
 import * as Location from "expo-location";
@@ -27,6 +29,7 @@ type Outlet = {
   latitude: number;
   longitude: number;
   image: any;
+  phone?: string;
 };
 
 // Full island-wide Barista Sri Lanka outlet list, sourced from barista.lk/locations.
@@ -85,7 +88,7 @@ const OUTLETS: Outlet[] = [
   { id: "45", name: "Barista Mirihana", address: "266 Old Kottawa Rd, Nugegoda 10250", latitude: 6.8721, longitude: 79.8890, image: img },
   { id: "46", name: "Barista Mirissa", address: "Sri Ramya, Galle Road, Mirissa", latitude: 5.9483, longitude: 80.4589, image: img },
   { id: "47", name: "Barista MOB", address: "28, Vajira Road, R. A. De Mel Mawatha, Colombo 04", latitude: 6.9089, longitude: 79.8560, image: img },
-  { id: "48", name: "Barista Moratuwa", address: "11 Galle Rd New Deviation, Moratuwa 10400", latitude: 6.7730, longitude: 79.8816, image: img },
+  { id: "48", name: "Barista Moratuwa", address: "11 Galle Rd New Deviation, Moratuwa 10400", latitude: 6.7730, longitude: 79.8816, image: img, phone: "+94 112 170 607" },
   { id: "49", name: "Barista Mount Lavinia", address: "198, Galle Road, Mount Lavinia", latitude: 6.8389, longitude: 79.8653, image: img },
   { id: "50", name: "Barista Mulleriyawa", address: "No 313, 10 Avissawella Rd, Mulleriyawa New Town", latitude: 6.9350, longitude: 79.9350, image: img },
   { id: "51", name: "Barista Narahenpita", address: "No 570/1, Elvitigala Mawatha, Narahenpita", latitude: 6.8890, longitude: 79.8790, image: img },
@@ -144,6 +147,8 @@ function distanceKm(lat1: number, lon1: number, lat2: number, lon2: number) {
   return R * c;
 }
 
+const DEFAULT_PHONE = "+94 112 170 607";
+
 export default function SelectOutletScreen() {
   const router = useRouter();
   const mapRef = useRef<MapView>(null);
@@ -154,6 +159,8 @@ export default function SelectOutletScreen() {
   const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showAll, setShowAll] = useState(false);
+  // Outlet whose "More Info" popup is currently open. null = popup hidden.
+  const [detailOutlet, setDetailOutlet] = useState<Outlet | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -215,6 +222,23 @@ export default function SelectOutletScreen() {
   const recenterToUser = () => {
     if (!userLocation) return;
     mapRef.current?.animateToRegion({ ...userLocation, latitudeDelta: 0.08, longitudeDelta: 0.08 }, 500);
+  };
+
+  const openDirections = (outlet: Outlet) => {
+    const url = `https://www.google.com/maps/dir/?api=1&destination=${outlet.latitude},${outlet.longitude}`;
+    Linking.openURL(url);
+  };
+
+  const callOutlet = (outlet: Outlet) => {
+    const phone = outlet.phone ?? DEFAULT_PHONE;
+    Linking.openURL(`tel:${phone.replace(/\s/g, "")}`);
+  };
+
+  const confirmOutletSelection = (outlet: Outlet) => {
+    setSelectedId(outlet.id);
+    setDetailOutlet(null);
+    // Hook up navigation / confirm-order logic here if needed, e.g.:
+    // router.push({ pathname: "/checkout", params: { outletId: outlet.id } });
   };
 
   const initialRegion: Region = {
@@ -376,10 +400,10 @@ export default function SelectOutletScreen() {
                   </View>
                   <View style={styles.cardDivider} />
                   <View style={styles.cardActionsRow}>
-                    <TouchableOpacity style={styles.directionCircle}>
+                    <TouchableOpacity style={styles.directionCircle} onPress={() => openDirections(item)}>
                       <Ionicons name="navigate-outline" size={18} color={ORANGE} />
                     </TouchableOpacity>
-                    <TouchableOpacity style={styles.moreInfoButton}>
+                    <TouchableOpacity style={styles.moreInfoButton} onPress={() => setDetailOutlet(item)}>
                       <Text style={styles.moreInfoText}>More Info</Text>
                     </TouchableOpacity>
                   </View>
@@ -407,6 +431,69 @@ export default function SelectOutletScreen() {
           </TouchableOpacity>
         </View>
       </View>
+
+      {/* Outlet detail popup — opened from "More Info" on a card */}
+      {detailOutlet && (
+        <Modal
+          visible
+          transparent
+          animationType="slide"
+          onRequestClose={() => setDetailOutlet(null)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalCard}>
+              <View style={styles.modalImageWrap}>
+                <Image source={detailOutlet.image} style={styles.modalImage} resizeMode="cover" />
+                <TouchableOpacity style={styles.modalCloseBtn} onPress={() => setDetailOutlet(null)}>
+                  <Ionicons name="close" size={20} color="#2B2B2B" />
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.modalBody}>
+                <View style={styles.modalTitleRow}>
+                  <Text style={styles.modalTitle}>{detailOutlet.name}</Text>
+                  <View style={styles.openBadge}>
+                    <Text style={styles.openBadgeText}>Open</Text>
+                  </View>
+                </View>
+
+                <Text style={styles.modalAddress}>{detailOutlet.address}</Text>
+
+                <View style={styles.modalMetaRow}>
+                  <Ionicons name="location-outline" size={16} color="#2B2B2B" />
+                  <Text style={styles.modalMetaText}>{getDistanceLabel(detailOutlet)} away</Text>
+                </View>
+                <View style={styles.modalMetaRow}>
+                  <Ionicons name="time-outline" size={16} color="#2B2B2B" />
+                  <Text style={styles.modalMetaText}>{getTimeLabel(detailOutlet)} travel time</Text>
+                </View>
+                <View style={styles.modalMetaRow}>
+                  <Ionicons name="call-outline" size={16} color="#2B2B2B" />
+                  <Text style={styles.modalMetaText}>{detailOutlet.phone ?? DEFAULT_PHONE}</Text>
+                </View>
+
+                <View style={styles.modalActionsRow}>
+                  <TouchableOpacity style={styles.modalOutlineBtn} onPress={() => openDirections(detailOutlet)}>
+                    <Ionicons name="navigate-outline" size={16} color="#2B2B2B" />
+                    <Text style={styles.modalOutlineBtnText}>Get Directions</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.modalOutlineBtn} onPress={() => callOutlet(detailOutlet)}>
+                    <Ionicons name="call-outline" size={16} color="#2B2B2B" />
+                    <Text style={styles.modalOutlineBtnText}>Call</Text>
+                  </TouchableOpacity>
+                </View>
+
+                <TouchableOpacity
+                  style={styles.modalSelectBtn}
+                  onPress={() => confirmOutletSelection(detailOutlet)}
+                >
+                  <Text style={styles.modalSelectBtnText}>Select Outlet</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+      )}
     </View>
   );
 }
@@ -561,4 +648,83 @@ const styles = StyleSheet.create({
   },
   navItem: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center" },
   navItemActive: { backgroundColor: "#2B2B2B" },
+
+  // --- More Info popup ---
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.45)",
+    justifyContent: "flex-end",
+  },
+  modalCard: {
+    height: "88%",
+    backgroundColor: "#FBF1EA",
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    overflow: "hidden",
+  },
+  modalImageWrap: {
+    height: 260,
+    width: "100%",
+    position: "relative",
+  },
+  modalImage: {
+    width: "100%",
+    height: "100%",
+  },
+  modalCloseBtn: {
+    position: "absolute",
+    top: 16,
+    right: 16,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "rgba(255,255,255,0.9)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  modalBody: {
+    flex: 1,
+    padding: 24,
+  },
+  modalTitleRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  modalTitle: { fontSize: 20, fontWeight: "800", color: "#2B2B2B", flexShrink: 1, marginRight: 8 },
+  openBadge: {
+    backgroundColor: "#DFF5E3",
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  openBadgeText: { color: "#2E7D45", fontSize: 12, fontWeight: "700" },
+  modalAddress: { fontSize: 14, color: "#6A6A6A", marginTop: 6, marginBottom: 18 },
+  modalMetaRow: { flexDirection: "row", alignItems: "center", marginBottom: 12 },
+  modalMetaText: { fontSize: 14, color: "#2B2B2B", marginLeft: 10 },
+  modalActionsRow: {
+    flexDirection: "row",
+    marginTop: 12,
+    marginBottom: 16,
+  },
+  modalOutlineBtn: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "#E8D8CC",
+    borderRadius: 24,
+    paddingVertical: 12,
+    marginHorizontal: 6,
+  },
+  modalOutlineBtnText: { marginLeft: 6, fontSize: 14, fontWeight: "600", color: "#2B2B2B" },
+  modalSelectBtn: {
+    backgroundColor: ORANGE,
+    borderRadius: 28,
+    paddingVertical: 16,
+    alignItems: "center",
+    marginTop: 4,
+  },
+  modalSelectBtnText: { color: "#FFFFFF", fontSize: 16, fontWeight: "700" },
 });
