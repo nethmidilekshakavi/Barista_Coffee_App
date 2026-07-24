@@ -133,7 +133,7 @@ export default function DashboardScreen() {
           <TouchableOpacity style={styles.navItem} onPress={() => router.push("/menu")}>
             <Ionicons name="cafe-outline" size={22} color="#6A6A6A" />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.navItem}>
+          <TouchableOpacity style={styles.navItem} onPress={() => router.push("/select-outlet")}>
             <Ionicons name="location-outline" size={22} color="#6A6A6A" />
           </TouchableOpacity>
           <TouchableOpacity style={styles.navItem}>
